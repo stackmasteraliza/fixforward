@@ -149,6 +149,43 @@ def _parse_jest(raw_output: str, summary_match):
         if total == 0:
             total = suite_failed or 1
 
+    # Fallback: failed_count > 0 but no individual failures extracted
+    # Create entries from FAIL file lines, or a single generic entry
+    if not failures and failed_count > 0:
+        if fail_files:
+            for fail_file in fail_files[:5]:  # Limit to first 5
+                # Find error context near the FAIL line
+                idx = raw_output.find(f"FAIL {fail_file}")
+                if idx < 0:
+                    idx = raw_output.find(fail_file)
+                chunk = raw_output[idx:idx + 1500] if idx >= 0 else ""
+
+                error_msg = ""
+                err_match = JEST_SUITE_ERROR_RE.search(chunk)
+                if err_match:
+                    error_msg = err_match.group(1).strip()
+
+                failures.append(TestFailure(
+                    test_name=f"FAIL: {fail_file}",
+                    file_path=fail_file,
+                    line_number=None,
+                    error_message=error_msg or "Test failed",
+                    full_output=chunk[:500] if chunk else raw_output[:500],
+                ))
+        else:
+            # No FAIL files found either — create a single generic entry
+            error_msg = ""
+            err_match = JEST_SUITE_ERROR_RE.search(raw_output)
+            if err_match:
+                error_msg = err_match.group(1).strip()
+            failures.append(TestFailure(
+                test_name="<test failures>",
+                file_path="",
+                line_number=None,
+                error_message=error_msg or raw_output[:300],
+                full_output=raw_output[:1000],
+            ))
+
     return TestResult(
         passed=failed_count == 0 and suite_failed == 0,
         exit_code=1 if (failed_count > 0 or suite_failed > 0) else 0,

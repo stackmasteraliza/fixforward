@@ -164,21 +164,23 @@ def _build_fix_prompt(
             except Exception:
                 pass
 
-        # For suite failures, include the test file and config
+        # For suite/FAIL failures, include the test file and config
         test_name = f.failure.test_name
-        if test_name.startswith("Suite: "):
-            test_file = test_name[7:].strip()
-            test_path = Path(project_path) / test_file
-            if test_path.exists() and test_file not in seen_files:
-                try:
-                    content = test_path.read_text()
-                    if len(content) < 10000:
-                        source_context.append(
-                            f"--- {test_file} ---\n{content}"
-                        )
-                        seen_files.add(test_file)
-                except Exception:
-                    pass
+        for prefix in ("Suite: ", "FAIL: "):
+            if test_name.startswith(prefix):
+                test_file = test_name[len(prefix):].strip()
+                test_path = Path(project_path) / test_file
+                if test_path.exists() and test_file not in seen_files:
+                    try:
+                        content = test_path.read_text()
+                        if len(content) < 10000:
+                            source_context.append(
+                                f"--- {test_file} ---\n{content}"
+                            )
+                            seen_files.add(test_file)
+                    except Exception:
+                        pass
+                break
 
     # For Node.js projects, include config files that affect test runs
     if ecosystem == Ecosystem.NODE:
@@ -197,10 +199,17 @@ def _build_fix_prompt(
     failures_text = "\n".join(failure_descriptions)
     sources_text = "\n\n".join(source_context) if source_context else "(no source files read)"
 
+    # Include raw test output when individual failure details are sparse
+    raw_output_section = ""
+    if failures and failures[0].failure.full_output:
+        raw_snippet = failures[0].failure.full_output[:2000]
+        raw_output_section = f"\nRAW TEST OUTPUT (excerpt):\n{raw_snippet}\n"
+
     return (
         f"I have a {ecosystem.value} project with failing tests. "
         f"Generate a minimal fix.\n\n"
-        f"FAILURES:\n{failures_text}\n\n"
+        f"FAILURES:\n{failures_text}\n"
+        f"{raw_output_section}\n"
         f"SOURCE FILES:\n{sources_text}\n\n"
         f"Generate the smallest possible code change to fix these failures. "
         f"Show the complete corrected file content for each file that needs changes. "
