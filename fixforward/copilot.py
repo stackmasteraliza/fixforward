@@ -166,7 +166,7 @@ def _build_fix_prompt(
 
         # For suite/FAIL failures, include the test file and config
         test_name = f.failure.test_name
-        for prefix in ("Suite: ", "FAIL: "):
+        for prefix in ("Suite: ", "FAIL: ", "collect: "):
             if test_name.startswith(prefix):
                 test_file = test_name[len(prefix):].strip()
                 test_path = Path(project_path) / test_file

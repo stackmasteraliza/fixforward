@@ -12,9 +12,13 @@ ERROR_COUNT_RE = re.compile(r"(\d+)\s+error")
 SHORT_SUMMARY_RE = re.compile(r"=+\s*short test summary info\s*=+")
 FAILED_LINE_RE = re.compile(r"FAILED\s+(.+?)::(.+?)(?:\s*-\s*(.*))?$")
 ERROR_LINE_RE = re.compile(r"ERROR\s+(.+?)::(.+?)(?:\s*-\s*(.*))?$")
+# Collection errors: "ERROR collecting <file>" or just "ERROR <file>"
+ERROR_COLLECT_RE = re.compile(r"ERROR\s+(?:collecting\s+)?(\S+\.py)\s*$")
 PASSED_LINE_RE = re.compile(r"(\S+\.py)::(\S+)\s+PASSED")
 SECTION_SEP_RE = re.compile(r"_{5,}\s+(.+?)\s+_{5,}")
 TRACEBACK_FILE_RE = re.compile(r"(\S+\.py):(\d+):")
+# Collection error block header
+COLLECT_ERROR_RE = re.compile(r"_{5,}\s+ERROR collecting\s+(\S+\.py)\s+_{5,}")
 
 
 def parse(raw_output: str) -> TestResult:
@@ -99,6 +103,28 @@ def parse(raw_output: str) -> TestResult:
                     full_output=full_output,
                 ))
 
+    # Handle collection errors (e.g. "ERROR collecting foo_test.py")
+    if not failures and error_count > 0:
+        seen_files = set()
+        for line in lines:
+            m = ERROR_COLLECT_RE.search(line)
+            if m and m.group(1) not in seen_files:
+                file_path = m.group(1)
+                seen_files.add(file_path)
+                # Extract the error from the collection error block
+                error_msg, full_output = _extract_collection_error(
+                    lines, file_path
+                )
+                failures.append(TestFailure(
+                    test_name=f"collect: {file_path}",
+                    file_path=file_path,
+                    line_number=None,
+                    error_message=error_msg,
+                    full_output=full_output,
+                ))
+                if len(failures) >= 5:  # Limit — they're often all the same error
+                    break
+
     # Fallback: count from individual test lines
     if passed_count == 0 and failed_count == 0:
         for line in lines:
@@ -139,6 +165,28 @@ def _find_line_number(lines, file_path, test_name):
             if line.startswith("=") or (line.startswith("_") and len(line) > 10):
                 break
     return last_line_num
+
+
+def _extract_collection_error(lines, file_path):
+    """Extract error message from a collection error block."""
+    capturing = False
+    result = []
+    error_msg = ""
+    for line in lines:
+        if f"ERROR collecting {file_path}" in line and "___" in line:
+            capturing = True
+            continue
+        if capturing:
+            if line.startswith("=") and len(line) > 10:
+                break
+            if line.startswith("_") and "ERROR collecting" in line:
+                break
+            result.append(line)
+            # Capture the E line (actual error)
+            stripped = line.strip()
+            if stripped.startswith("E   ") or stripped.startswith("E\t"):
+                error_msg = stripped[1:].strip()
+    return error_msg or "(collection error)", "\n".join(result[-20:])
 
 
 def _extract_traceback(lines, test_name):
