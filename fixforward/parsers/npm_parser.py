@@ -7,12 +7,18 @@ from fixforward.detector import TestResult, TestFailure
 JEST_SUMMARY_RE = re.compile(
     r"Tests:\s+(?:(\d+)\s+failed\s*,?\s*)?(?:(\d+)\s+passed\s*,?\s*)?(\d+)\s+total"
 )
+JEST_SUITE_RE = re.compile(
+    r"Test Suites:\s+(?:(\d+)\s+failed\s*,?\s*)?(?:(\d+)\s+passed\s*,?\s*)?(\d+)\s+total"
+)
 JEST_FAIL_FILE_RE = re.compile(r"FAIL\s+(.+?)$", re.MULTILINE)
 JEST_TEST_FAIL_RE = re.compile(r"\s+[✕×✗]\s+(.+?)(?:\s+\((\d+)\s*ms\))?$", re.MULTILINE)
 JEST_EXPECT_RE = re.compile(r"Expected:?\s*(.+?)$", re.MULTILINE)
 JEST_RECEIVED_RE = re.compile(r"Received:?\s*(.+?)$", re.MULTILINE)
 JEST_AT_RE = re.compile(r"at\s+.*?\((.+?):(\d+):\d+\)")
 JEST_TIME_RE = re.compile(r"Time:\s+([\d.]+)\s*s")
+JEST_SUITE_ERROR_RE = re.compile(
+    r"(?:SyntaxError|TypeError|ReferenceError|Error):\s*(.+?)$", re.MULTILINE
+)
 
 # Mocha patterns
 MOCHA_PASSING_RE = re.compile(r"(\d+)\s+passing")
@@ -62,24 +68,27 @@ def _parse_jest(raw_output: str, summary_match):
     passed_count = int(summary_match.group(2) or 0)
     total = int(summary_match.group(3) or 0)
 
+    # Check for suite-level failures (test suite failed to run)
+    suite_match = JEST_SUITE_RE.search(raw_output)
+    suite_failed = int(suite_match.group(1) or 0) if suite_match else 0
+
     time_match = JEST_TIME_RE.search(raw_output)
     duration = float(time_match.group(1)) if time_match else 0.0
 
     failures = []
 
     # Find FAIL files
-    current_file = ""
+    fail_files = []
     for m in JEST_FAIL_FILE_RE.finditer(raw_output):
-        current_file = m.group(1).strip()
+        fail_files.append(m.group(1).strip())
+    current_file = fail_files[-1] if fail_files else ""
 
     # Find individual failing tests
     for m in JEST_TEST_FAIL_RE.finditer(raw_output):
         test_name = m.group(1).strip()
-        # Try to find file and line from stack trace
         file_path = current_file
         line_number = None
 
-        # Look for "at" lines after this test
         pos = m.end()
         chunk = raw_output[pos:pos + 1000]
         at_match = JEST_AT_RE.search(chunk)
@@ -87,7 +96,6 @@ def _parse_jest(raw_output: str, summary_match):
             file_path = at_match.group(1)
             line_number = int(at_match.group(2))
 
-        # Get error message
         error_msg = ""
         expect_match = JEST_EXPECT_RE.search(chunk)
         received_match = JEST_RECEIVED_RE.search(chunk)
@@ -104,9 +112,46 @@ def _parse_jest(raw_output: str, summary_match):
             full_output=chunk[:500],
         ))
 
+    # Handle suite-level failures (e.g. "Test suite failed to run")
+    if not failures and (suite_failed > 0 or "Test suite failed to run" in raw_output):
+        for fail_file in (fail_files or [""]):
+            # Extract the error from the suite failure
+            error_msg = ""
+            err_match = JEST_SUITE_ERROR_RE.search(raw_output)
+            if err_match:
+                error_msg = err_match.group(1).strip()
+
+            # Try to find file/line from stack trace
+            line_number = None
+            at_match = JEST_AT_RE.search(raw_output)
+            source_file = fail_file
+            if at_match:
+                source_file = at_match.group(1)
+                line_number = int(at_match.group(2))
+
+            # Get a chunk of context around the error
+            suite_fail_idx = raw_output.find("Test suite failed to run")
+            if suite_fail_idx >= 0:
+                full_output = raw_output[suite_fail_idx:suite_fail_idx + 1000]
+            else:
+                full_output = raw_output[:1000]
+
+            failures.append(TestFailure(
+                test_name=f"Suite: {fail_file}" if fail_file else "<test suite>",
+                file_path=source_file,
+                line_number=line_number,
+                error_message=error_msg or "Test suite failed to run",
+                full_output=full_output,
+            ))
+
+        if failed_count == 0:
+            failed_count = suite_failed or 1
+        if total == 0:
+            total = suite_failed or 1
+
     return TestResult(
-        passed=failed_count == 0,
-        exit_code=1 if failed_count > 0 else 0,
+        passed=failed_count == 0 and suite_failed == 0,
+        exit_code=1 if (failed_count > 0 or suite_failed > 0) else 0,
         raw_output=raw_output,
         total_tests=total,
         passed_count=passed_count,
