@@ -39,6 +39,13 @@ def _cmd_run(args):
 
     display.failures_found(result)
 
+    if result.total_tests == 0 and not result.failures:
+        display.error(
+            "No tests found. Make sure your project has a test script "
+            "configured (e.g. 'test' in package.json scripts, pytest.ini, etc.)"
+        )
+        sys.exit(1)
+
     # Step 3: Classify failures
     display.step(3, "Classifying failures...")
     classifications = classify(result.failures, ecosystem)
@@ -115,6 +122,13 @@ def _cmd_diagnose(args):
         return
 
     display.failures_found(result)
+
+    if result.total_tests == 0 and not result.failures:
+        display.error(
+            "No tests found. Make sure your project has a test script "
+            "configured (e.g. 'test' in package.json scripts, pytest.ini, etc.)"
+        )
+        sys.exit(1)
 
     display.step(3, "Classifying failures...")
     classifications = classify(result.failures, ecosystem)
