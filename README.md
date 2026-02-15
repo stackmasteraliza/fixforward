@@ -7,6 +7,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/fixforward?color=brightgreen&label=PyPI)](https://pypi.org/project/fixforward/)
 [![Python](https://img.shields.io/pypi/pyversions/fixforward?color=blue)](https://pypi.org/project/fixforward/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://img.shields.io/pypi/dm/fixforward?color=orange)](https://pypi.org/project/fixforward/)
 
 **One command to go from broken build to ready-to-merge PR.**
 
@@ -28,18 +29,28 @@ It detects failures, classifies the issue, asks GitHub Copilot CLI to generate a
 
 ## Demo
 
-<!-- Replace with actual demo GIF -->
-<!-- ![fixforward demo](screenshots/demo.gif) -->
-
 ```
 $ fixforward run --path ./my-broken-project
+
+ ╔════════════════════════════════════════════════════════╗
+ ║   _____ _      _____                            _     ║
+ ║  |  ___(_)_  _|  ___|__  _ ____      ____ _ _ __| |   ║
+ ║  | |_  | \ \/ / |_ / _ \| '__\ \ /\ / / _` | '__| |  ║
+ ║  |  _| | |>  <|  _| (_) | |   \ V  V / (_| | |  | |  ║
+ ║  |_|   |_/_/\_\_|  \___/|_|    \_/\_/ \__,_|_|  |_|   ║
+ ╚══════ incident-to-PR autopilot · GitHub Copilot CLI ═══╝
 
   [1/6] Detecting project ecosystem...       → Python / pytest
   [2/6] Running tests to capture failures... → 1 failed / 4 passed
   [3/6] Classifying failures...              → assertion (85% confidence)
-  [4/6] Asking GitHub Copilot for a fix...   → Patch generated
+  [4/6] Asking GitHub Copilot for a fix...   → Patch: a / b → a // b
   [5/6] Applying patch on a safe branch...   → fixforward/auto-20260215-130944
-  [6/6] Re-running tests to verify fix...    → 0 failed / 5 passed ✓
+  [6/6] Re-running tests to verify fix...    → 0 failed / 5 passed
+
+  ╭──── BEFORE ─────╮  ╭───── AFTER ─────╮
+  │ 1 failed        │  │ 0 failed        │
+  │ 4 passed        │  │ 5 passed        │
+  ╰─────────────────╯  ╰─────────────────╯
 
   Confidence: ███████████████████░ 95%
   All tests passing after fix!
@@ -165,6 +176,60 @@ python -m fixforward run --path ./my-project
 |------|-------------|
 | `--path`, `-p` | Path to the project (default: `.`) |
 
+## Try It Yourself
+
+The repo includes ready-made broken demo projects you can test with:
+
+### Python demo (division bug)
+
+```bash
+# Clone the repo
+git clone https://github.com/stackmasteraliza/fixforward.git
+cd fixforward
+
+# 1. See the bug — test_divide expects integer division but gets float
+cat demo/broken_python/app.py
+
+# 2. Diagnose the failure
+fixforward diagnose --path demo/broken_python
+
+# 3. Full autopilot — Copilot fixes a / b → a // b
+fixforward run --path demo/broken_python
+
+# 4. Undo and restore the broken state
+fixforward rollback --path demo/broken_python
+```
+
+### Node.js demo (truncation bug)
+
+```bash
+# truncate() produces ".." instead of "..."
+fixforward diagnose --path demo/broken_node
+```
+
+### Rust demo (off-by-one in clamp)
+
+```bash
+# clamp() uses >= instead of > for the max boundary
+fixforward diagnose --path demo/broken_rust
+```
+
+### Dry-run mode (safe, no changes)
+
+```bash
+fixforward run --path demo/broken_python --dry-run
+```
+
+This runs detection, test execution, and classification but stops before calling Copilot or modifying any files.
+
+### JSON output (for scripting)
+
+```bash
+fixforward diagnose --path demo/broken_python --json
+```
+
+Returns structured JSON with test name, file, line, category, confidence, and error message for each failure.
+
 ## Failure Categories
 
 FixForward classifies failures using regex heuristics for instant, deterministic results:
@@ -203,6 +268,47 @@ gh copilot -- -p "I have a python project with failing tests.
 ```
 
 Copilot CLI reads the source files, understands the context, and generates the smallest possible code change. FixForward then applies it, verifies it, and reports the result.
+
+<details>
+<summary><strong>Copilot CLI prompts used</strong></summary>
+<br>
+
+**Fix generation prompt** (sent via `gh copilot -- -p`):
+
+```
+I have a {ecosystem} project with failing tests. Generate a minimal fix.
+
+FAILURES:
+- [assertion] test_divide
+  File: test_app.py
+  Error: assert 3.3333333333333335 == 3
+
+SOURCE FILES:
+--- app.py ---
+{file contents}
+
+Generate the smallest possible code change to fix these failures.
+Show the complete corrected file content for each file that needs changes.
+Format each fix as:
+FILE: <filepath>
+```<complete corrected file content>```
+
+Then explain what you changed and why.
+```
+
+**Failure explanation prompt** (used by `fixforward diagnose`):
+
+```
+Explain this test failure concisely:
+Test: test_divide
+File: test_app.py
+Error: assert 3.3333333333333335 == 3
+Category: assertion
+
+What is the likely root cause and how should it be fixed?
+```
+
+</details>
 
 ## Architecture
 
