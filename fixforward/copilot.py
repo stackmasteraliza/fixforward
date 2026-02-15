@@ -114,10 +114,10 @@ def _run_copilot(prompt: str, project_path: str, allow_write: bool = False) -> s
             capture_output=True,
             text=True,
             cwd=str(Path(project_path).resolve()),
-            timeout=180,
+            timeout=300,
         )
     except subprocess.TimeoutExpired:
-        raise CopilotError("Copilot CLI timed out after 180 seconds.")
+        raise CopilotError("Copilot CLI timed out after 300 seconds.")
 
     output = result.stdout + result.stderr
     if not output.strip():
@@ -135,6 +135,7 @@ def _build_fix_prompt(
     failure_descriptions = []
     source_context = []
 
+    seen_files = set()
     for f in failures[:3]:  # Limit to top 3 failures
         desc = (
             f"- [{f.category.value}] {f.failure.test_name}\n"
@@ -145,16 +146,50 @@ def _build_fix_prompt(
         desc += f"\n  Error: {f.failure.error_message}"
         failure_descriptions.append(desc)
 
-        # Read source file for context
+        # Read source file for context (skip node_modules)
         src_path = Path(project_path) / f.failure.file_path
-        if src_path.exists():
+        if (src_path.exists()
+                and "node_modules" not in str(src_path)
+                and f.failure.file_path not in seen_files):
             try:
                 content = src_path.read_text()
-                source_context.append(
-                    f"--- {f.failure.file_path} ---\n{content}"
-                )
+                if len(content) < 10000:  # Skip huge files
+                    source_context.append(
+                        f"--- {f.failure.file_path} ---\n{content}"
+                    )
+                    seen_files.add(f.failure.file_path)
             except Exception:
                 pass
+
+        # For suite failures, include the test file and config
+        test_name = f.failure.test_name
+        if test_name.startswith("Suite: "):
+            test_file = test_name[7:].strip()
+            test_path = Path(project_path) / test_file
+            if test_path.exists() and test_file not in seen_files:
+                try:
+                    content = test_path.read_text()
+                    if len(content) < 10000:
+                        source_context.append(
+                            f"--- {test_file} ---\n{content}"
+                        )
+                        seen_files.add(test_file)
+                except Exception:
+                    pass
+
+    # For Node.js projects, include config files that affect test runs
+    if ecosystem == Ecosystem.NODE:
+        for config in ["jest.config.js", "jest.config.ts", "babel.config.js",
+                        "babel.config.json", ".babelrc", "tsconfig.json"]:
+            cfg_path = Path(project_path) / config
+            if cfg_path.exists() and config not in seen_files:
+                try:
+                    content = cfg_path.read_text()
+                    if len(content) < 5000:
+                        source_context.append(f"--- {config} ---\n{content}")
+                        seen_files.add(config)
+                except Exception:
+                    pass
 
     failures_text = "\n".join(failure_descriptions)
     sources_text = "\n\n".join(source_context) if source_context else "(no source files read)"
