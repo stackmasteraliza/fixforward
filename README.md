@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/cover.png" alt="FixForward Cover" width="100%">
+
 # FixForward
 
 ### Incident-to-PR autopilot powered by GitHub Copilot CLI.
@@ -29,32 +31,9 @@ It detects failures, classifies the issue, asks GitHub Copilot CLI to generate a
 
 ## Demo
 
-```
-$ fixforward run --path ./my-broken-project
-
- ╔════════════════════════════════════════════════════════╗
- ║   _____ _      _____                            _     ║
- ║  |  ___(_)_  _|  ___|__  _ ____      ____ _ _ __| |   ║
- ║  | |_  | \ \/ / |_ / _ \| '__\ \ /\ / / _` | '__| |  ║
- ║  |  _| | |>  <|  _| (_) | |   \ V  V / (_| | |  | |  ║
- ║  |_|   |_/_/\_\_|  \___/|_|    \_/\_/ \__,_|_|  |_|   ║
- ╚══════ incident-to-PR autopilot · GitHub Copilot CLI ═══╝
-
-  [1/6] Detecting project ecosystem...       → Python / pytest
-  [2/6] Running tests to capture failures... → 1 failed / 4 passed
-  [3/6] Classifying failures...              → assertion (85% confidence)
-  [4/6] Asking GitHub Copilot for a fix...   → Patch: a / b → a // b
-  [5/6] Applying patch on a safe branch...   → fixforward/auto-20260215-130944
-  [6/6] Re-running tests to verify fix...    → 0 failed / 5 passed
-
-  ╭──── BEFORE ─────╮  ╭───── AFTER ─────╮
-  │ 1 failed        │  │ 0 failed        │
-  │ 4 passed        │  │ 5 passed        │
-  ╰─────────────────╯  ╰─────────────────╯
-
-  Confidence: ███████████████████░ 95%
-  All tests passing after fix!
-```
+<div align="center">
+<img src="assets/demo.gif" alt="FixForward Demo" width="700">
+</div>
 
 ## How It Works
 
@@ -74,6 +53,19 @@ tests fail → parse output → classify failure → Copilot generates fix → a
 6. **Apply** — creates a `fixforward/auto-*` branch, writes the fix, commits
 7. **Verify** — re-runs the test suite, shows before/after comparison with confidence score
 8. **Report** — generates PR title and body with what changed and why
+
+## Screenshots
+
+<table>
+<tr>
+<td><strong>Full autopilot run</strong><br><img src="assets/screenshot_run.png" width="400"></td>
+<td><strong>Diagnose mode</strong><br><img src="assets/screenshot_diagnose.png" width="400"></td>
+</tr>
+<tr>
+<td><strong>Dependency detection</strong><br><img src="assets/screenshot_dependency.png" width="400"></td>
+<td><strong>Node.js / Jest support</strong><br><img src="assets/screenshot_nodejs.png" width="400"></td>
+</tr>
+</table>
 
 ## Supported Ecosystems
 
