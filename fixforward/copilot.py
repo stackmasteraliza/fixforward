@@ -50,9 +50,12 @@ def generate_patch(
     explanation = _extract_explanation(raw_output)
 
     if not changes:
+        if verbose:
+            from rich.console import Console
+            Console(stderr=True).print(f"[dim]Copilot raw output (no changes parsed):\n{raw_output}[/]")
         raise CopilotError(
             "Copilot did not produce any file changes. "
-            "Try running again or fixing manually."
+            "Try running again with --verbose to see raw output."
         )
 
     return PatchResult(
@@ -236,7 +239,34 @@ def _parse_response(raw_output: str, project_path: str) -> List[FileChange]:
                 diff=diff,
             ))
 
-    # Strategy 2: Look for diff blocks
+    # Strategy 2: Look for filename headers followed by code blocks
+    # Handles: ### jest.config.js, **jest.config.js**, `jest.config.js`:
+    if not changes:
+        header_pattern = re.compile(
+            r"(?:#{1,4}\s+|(?:\*\*|`))"
+            r"([a-zA-Z0-9_./-]+\.[a-zA-Z]+)"
+            r"(?:\*\*|`|:?)?\s*\n\s*```\w*\n(.+?)```",
+            re.DOTALL,
+        )
+        for m in header_pattern.finditer(raw_output):
+            file_path = m.group(1).strip()
+            new_content = m.group(2)
+
+            original_path = Path(project_path) / file_path
+            original_content = ""
+            if original_path.exists():
+                original_content = original_path.read_text()
+
+            if new_content.strip() != original_content.strip():
+                diff = _make_diff(file_path, original_content, new_content)
+                changes.append(FileChange(
+                    file_path=file_path,
+                    original_content=original_content,
+                    modified_content=new_content,
+                    diff=diff,
+                ))
+
+    # Strategy 3: Look for diff blocks
     if not changes:
         diff_pattern = re.compile(r"```diff\n(.+?)```", re.DOTALL)
         for m in diff_pattern.finditer(raw_output):
@@ -252,23 +282,24 @@ def _parse_response(raw_output: str, project_path: str) -> List[FileChange]:
                     diff=diff_text,
                 ))
 
-    # Strategy 3: Look for any code blocks with identifiable file content
+    # Strategy 4: Look for code blocks and match against known project files
     if not changes:
         code_pattern = re.compile(r"```(\w+)\n(.+?)```", re.DOTALL)
         for m in code_pattern.finditer(raw_output):
             lang = m.group(1)
             content = m.group(2)
 
-            # Try to match against existing project files
+            # Try to match against existing project files (skip node_modules)
             ext_map = {"python": ".py", "javascript": ".js", "rust": ".rs",
-                       "py": ".py", "js": ".js", "rs": ".rs"}
+                       "py": ".py", "js": ".js", "rs": ".rs",
+                       "typescript": ".ts", "ts": ".ts", "tsx": ".tsx",
+                       "jsx": ".jsx", "json": ".json"}
             ext = ext_map.get(lang, "")
             if ext:
                 project = Path(project_path)
                 for src_file in project.rglob(f"*{ext}"):
-                    if src_file.is_file():
+                    if src_file.is_file() and "node_modules" not in str(src_file):
                         original = src_file.read_text()
-                        # Check if this looks like a modified version
                         similarity = difflib.SequenceMatcher(
                             None, original, content
                         ).ratio()
