@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fixforward"
+version = "0.1.0"
+description = "Incident-to-PR autopilot: detect failures, generate fixes with GitHub Copilot CLI, and ship PRs."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    {name = "Aliza Ali"}
+]
+keywords = ["cli", "copilot", "testing", "autopilot", "fix", "github", "developer-tools"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+fixforward = "fixforward.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/stackmasteraliza/fixforward"
+Repository = "https://github.com/stackmasteraliza/fixforward"
+
+[tool.setuptools.packages.find]
+include = ["fixforward*"]

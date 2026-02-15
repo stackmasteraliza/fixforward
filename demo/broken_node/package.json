@@ -1,0 +1,9 @@
+{
+  "name": "broken-node-demo",
+  "version": "1.0.0",
+  "description": "A deliberately broken Node.js project for FixForward demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test.js"
+  }
+}
