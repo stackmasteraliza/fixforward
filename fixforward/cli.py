@@ -65,6 +65,10 @@ def _cmd_run(args):
             verbose=args.verbose,
         )
     except CopilotError as e:
+        err_msg = str(e)
+        if "No code changes needed" in err_msg:
+            display.info(err_msg)
+            return
         display.error(f"Copilot failed: {e}")
         sys.exit(1)
 

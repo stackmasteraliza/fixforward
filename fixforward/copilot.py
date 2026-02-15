@@ -50,6 +50,23 @@ def generate_patch(
     explanation = _extract_explanation(raw_output)
 
     if not changes:
+        # Check if Copilot determined no code changes are needed
+        no_code_indicators = [
+            "no code changes",
+            "no file changes",
+            "no changes needed",
+            "already correctly written",
+            "just need",
+            "install the",
+            "pip install",
+            "npm install",
+            "cargo add",
+        ]
+        lower_output = raw_output.lower()
+        if any(indicator in lower_output for indicator in no_code_indicators):
+            raise CopilotError(
+                f"No code changes needed. Copilot suggests:\n{explanation or raw_output[:500]}"
+            )
         if verbose:
             from rich.console import Console
             Console(stderr=True).print(f"[dim]Copilot raw output (no changes parsed):\n{raw_output}[/]")

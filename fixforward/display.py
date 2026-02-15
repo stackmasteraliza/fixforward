@@ -322,6 +322,18 @@ class Display:
     def aborted(self):
         self.console.print(f"\n  [{WARN}]Aborted. No changes made.[/]")
 
+    def info(self, message):
+        self.console.print()
+        self.console.print(
+            Panel(
+                f"[bold cyan]{message}[/]",
+                title="[bold cyan]INFO[/]",
+                border_style="cyan",
+                box=box.ROUNDED,
+                padding=(0, 2),
+            )
+        )
+
     def error(self, message):
         self.console.print()
         self.console.print(
