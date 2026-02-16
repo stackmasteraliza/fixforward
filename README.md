@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/cover.png" alt="FixForward Cover" width="100%">
+<img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/cover.png" alt="FixForward Cover" width="100%">
 
 # FixForward
 
@@ -32,7 +32,7 @@ It detects failures, classifies the issue, asks GitHub Copilot CLI to generate a
 ## Demo
 
 <div align="center">
-<img src="assets/demo.gif" alt="FixForward Demo" width="700">
+<img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/demo.gif" alt="FixForward Demo" width="700">
 </div>
 
 ## How It Works
@@ -58,12 +58,12 @@ tests fail → parse output → classify failure → Copilot generates fix → a
 
 <table>
 <tr>
-<td><strong>Full autopilot run</strong><br><img src="assets/screenshot_run.png" width="400"></td>
-<td><strong>Diagnose mode</strong><br><img src="assets/screenshot_diagnose.png" width="400"></td>
+<td><strong>Full autopilot run</strong><br><img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/screenshot_run.png" width="400"></td>
+<td><strong>Diagnose mode</strong><br><img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/screenshot_diagnose.png" width="400"></td>
 </tr>
 <tr>
-<td><strong>Dependency detection</strong><br><img src="assets/screenshot_dependency.png" width="400"></td>
-<td><strong>Node.js / Jest support</strong><br><img src="assets/screenshot_nodejs.png" width="400"></td>
+<td><strong>Dependency detection</strong><br><img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/screenshot_dependency.png" width="400"></td>
+<td><strong>Node.js / Jest support</strong><br><img src="https://raw.githubusercontent.com/stackmasteraliza/fixforward/main/assets/screenshot_nodejs.png" width="400"></td>
 </tr>
 </table>
 
