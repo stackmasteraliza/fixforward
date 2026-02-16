@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixforward"
-version = "0.1.1"
+version = "0.1.2"
 description = "Incident-to-PR autopilot: detect failures, generate fixes with GitHub Copilot CLI, and ship PRs."
 readme = "README.md"
 license = "MIT"
